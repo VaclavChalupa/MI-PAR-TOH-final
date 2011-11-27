@@ -376,13 +376,22 @@ void run() {
 						}
 						break;
 						case MSG_WORK: {
-							int items[status._count];
-
+#ifdef STAR
+							int mpi_count;
+							MPI_Get_count(&status, MPI_INT, &mpi_count);
+							int data[mpi_count];
 							askewForWork = 0;
-
+							debug_print("MSG_WORK (process %i) OF SIZE %i RECEIVED", process_id, mpi_count);
+							MPI_Recv(&data, mpi_count, MPI_INT, MPI_ANY_SOURCE, MSG_WORK, MPI_COMM_WORLD, &status);
+							deserializeStack(data, mpi_count);
+#else
+							int items[status._count];
+							askewForWork = 0;
 							debug_print("MSG_WORK (process %i) OF SIZE %i RECEIVED", process_id, status._count);
 							MPI_Recv(&items, status._count, MPI_INT, MPI_ANY_SOURCE, MSG_WORK, MPI_COMM_WORLD, &status);
 							deserializeStack(items, status._count);
+#endif
+
 
 						}
 						break;
