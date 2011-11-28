@@ -7,7 +7,7 @@
 #define DISC_H_
 
 typedef struct Disc {
-		int size;
+		short size;
         struct Disc *next;
 } Disc;
 

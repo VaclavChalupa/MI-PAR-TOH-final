@@ -6,7 +6,7 @@
 #include "tower.h"
 #include <stdio.h>
 
-void printState(Tower towers[], int size) {
+void printState(Tower towers[], short size) {
 	int i;
 	for(i = 0; i < size; i++) {
 		Disc *disc;

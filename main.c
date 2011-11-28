@@ -17,11 +17,11 @@ int process_id, processors;
 
 int main(int argc, char *argv[]) {
 	Tower *towers;
-	int discsCount, towersCount, destTower;
+	short discsCount, towersCount, destTower;
 	static const char filename[] = "enter.txt";
 	static const char discDelimiter[] = ",";
 	FILE *file;
-	int i;
+	short i;
 
 	/* initialize MPI */
 	MPI_Init(&argc, &argv);
@@ -44,11 +44,11 @@ int main(int argc, char *argv[]) {
 			  char line [ 128 ]; /* max line size */
 			  int i;
 			  fgets(line, sizeof line, file);
-			  sscanf(line, "%i", &discsCount);
+			  sscanf(line, "%hi", &discsCount);
 			  fgets(line, sizeof line, file);
-			  sscanf(line, "%i", &towersCount);
+			  sscanf(line, "%hi", &towersCount);
 			  fgets(line, sizeof line, file);
-			  sscanf(line, "%i", &destTower);
+			  sscanf(line, "%hi", &destTower);
 
 			  debug_print("Towers of Hanoi: %i towers, %i discs, %i dest tower\n", towersCount, discsCount, destTower);
 			  towers = (Tower*) malloc (towersCount * sizeof(Tower));
@@ -66,12 +66,12 @@ int main(int argc, char *argv[]) {
 
 				  disc = strtok(towerLine, discDelimiter);
 				  while (1) {
-					  int discSize = 0;
+					  short discSize = 0;
 					  if (disc == NULL) {
 						  break;
 					  }
 
-					  sscanf(disc, "%i", &discSize);
+					  sscanf(disc, "%hi", &discSize);
 
 					  if (discSize == 0) {
 						  break;

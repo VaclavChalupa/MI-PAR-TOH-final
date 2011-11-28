@@ -8,11 +8,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static int processMove(Tower *source, Tower *dest);
+static short processMove(Tower *source, Tower *dest);
 
 static int verify(Tower *tower);
 
-int insertDics(int size, Tower *tower) {
+int insertDics(short size, Tower *tower) {
 	Disc *disc = malloc(sizeof(* disc));
 	disc->size = size;
 	disc->next = NULL;
@@ -25,7 +25,7 @@ int insertDics(int size, Tower *tower) {
 	return 0;
 }
 
-int move(Tower *source, Tower *dest) {
+short move(Tower *source, Tower *dest) {
 	if(source->top != NULL && dest->top != NULL && dest->top->size < source->top->size) {
 		return -2; /* dest has smaller disc*/
 	}
@@ -35,14 +35,15 @@ int move(Tower *source, Tower *dest) {
 
 int verify(Tower *tower) {
 	Disc *disc;
-	int prev = -1;
+	short prev = 0;
 	disc = tower->top;
 
 	while(disc != NULL) {
-		if (prev > -1 && disc->size <= prev ) {
+		if (prev > 0 && disc->size <= 0 ) {
 			printf("ERROR in tower: %i", tower->number);
 			exit(1);
 		}
+		prev = disc->size;
 		disc = disc->next;
 	}
 	return 0;
@@ -54,12 +55,11 @@ int undoMove(Tower *source, Tower *dest) {
 	return processMove(dest, source);
 }
 
-int isDestTowerComplete(Tower *tower, int discCount) {
+int isDestTowerComplete(Tower *tower, short discCount) {
 	Disc *disc;
-	int index = 1;
+	short index = 1;
 	disc = tower->top;
 	while(disc != NULL) {
-		/*printf("%i - %i", index, disc->size);*/
 		if (disc->size != index++) {
 			return 0;
 		}
@@ -68,7 +68,7 @@ int isDestTowerComplete(Tower *tower, int discCount) {
 	return index == discCount+1 ? 1 : 0;
 }
 
-int processMove(Tower *source, Tower *dest) {
+short processMove(Tower *source, Tower *dest) {
 	Disc* tmp;
 
 	if(source->top == NULL) {
@@ -94,7 +94,7 @@ void freeDiscs(Tower *tower) {
 	tower->top = NULL;
 }
 
-void freeTowers(Tower* towers, int* towersCount) {
+void freeTowers(Tower* towers, short* towersCount) {
 	int i;
 	for(i = 0; i < *towersCount; i++) {
 		freeDiscs(&towers[i]);

@@ -10,21 +10,21 @@
 #include "disc.h"
 
 typedef struct {
-	int number;
+	short number;
 	Disc *top;
 } Tower;
 
 
-int insertDics(int size, Tower *tower);
+int insertDics(short size, Tower *tower);
 
-int move(Tower * source, Tower *dest);
+short move(Tower * source, Tower *dest);
 
 int undoMove(Tower * source, Tower *dest);
 
-int isDestTowerComplete(Tower *tower, int discCount);
+int isDestTowerComplete(Tower *tower, short discCount);
 
 void freeDiscs(Tower *tower);
 
-void freeTowers(Tower* towers, int* towetsCount);
+void freeTowers(Tower* towers, short* towetsCount);
 
 #endif /* TOWER_H_ */

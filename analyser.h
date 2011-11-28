@@ -8,8 +8,8 @@
 
 #include "tower.h"
 
-int minMoves(Tower towers[], int size, int maxDiscSize, int destDisc);
+short minMoves(Tower towers[], short size, short maxDiscSize, short destDisc);
 
-int maxMoves(int dissCount, int towersCount);
+short maxMoves(short dissCount, short towersCount);
 
 #endif /* ANALYSER_H_ */

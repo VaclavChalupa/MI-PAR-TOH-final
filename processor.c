@@ -44,23 +44,24 @@
 #include <stdlib.h>
 #include "mpi.h"
 #include "debug.h"
+#include <time.h>
 
 
 /* MPI INFO */
 int process_id;
 int processors;
-int state = IDLE;
-int color = WHITE_COLOR;
-int global_state;
+short state = IDLE;
+short color = WHITE_COLOR;
+short global_state;
 
 /* solution info */
-int towersCount;
-int discsCount;
-int min;
-int max;
-int minSteps;
-int destTower;
-int processorWithSolution = -1;
+short towersCount;
+short discsCount;
+short min;
+short max;
+short minSteps;
+short destTower;
+short processorWithSolution = -1;
 struct {
 	ProcessItem *head;
 } solutionQueue;
@@ -68,24 +69,24 @@ struct {
 /* stack */
 Stack * stack;
 
-int initData[5];
+short initData[5];
 
-static void describeMove(int* prevState, int* currentState, int* disc, int* sourceTower, int* destTower);
-static int compareStates(int* prevState, int* currentState);
+static void describeMove(short* prevState, short* currentState, short* disc, short* sourceTower, short* destTower);
+static int compareStates(short* prevState, short* currentState);
 static void inspectStack();
-static int*  serializeState(Tower* _towers);
-static Tower* deserializeState(int* data);
+static short*  serializeState(Tower* _towers);
+static Tower* deserializeState(short* data);
 static int loopDetected();
 static void run();
 static void freeInspectStack();
-static void init(int _size, int _discsCount, int _destTower, int _min, int _max);
+static void init(short _size, short _discsCount, short _destTower, short _min, short _max);
 static void printSolutionIfExists();
-static void deserializeStack(int* stackData, int itemsCount);
-static int*  serializeStack(int* count);
+static void deserializeStack(short* stackData, short itemsCount);
+static short*  serializeStack(short* count);
 
-int*  serializeState(Tower* _towers) {
-	int * stack_item_data, i;
-	stack_item_data = (int*) malloc(discsCount * sizeof(int));
+short*  serializeState(Tower* _towers) {
+	short * stack_item_data, i;
+	stack_item_data = (short*) malloc(discsCount * sizeof(short));
 
 	for(i = 0; i < discsCount; i++) {
 		stack_item_data[i] = -1;
@@ -110,7 +111,7 @@ int*  serializeState(Tower* _towers) {
 	return stack_item_data;
 }
 
-Tower* deserializeState(int* data) {
+Tower* deserializeState(short* data) {
 	int i;
 	Tower* _towers;
 
@@ -145,16 +146,16 @@ int loopDetected() {
 	return 0;
 }
 
-void deserializeStack(int* stackData, int itemsCount) {
+void deserializeStack(short* stackData, short itemsCount) {
 
-	int offset, bulk;
-	bulk = discsCount + 6;
+	short offset, bulk;
+	bulk = discsCount + 7;
 
 	for (offset = 0; offset < itemsCount; offset += bulk) {
-		int* data;
-		int step, i, j, movedDisc, received, sent;
-		int disc;
-		data = (int*) malloc(discsCount * sizeof(int));
+		short* data;
+		short step, i, j, movedDisc, received, sent;
+		short disc;
+		data = (short*) malloc(discsCount * sizeof(short));
 
 
 		for (disc = 0; disc < discsCount; disc++) {
@@ -174,14 +175,14 @@ void deserializeStack(int* stackData, int itemsCount) {
 }
 
 
-int* serializeStack(int* count) {
+short* serializeStack(short* count) {
 	int cut;
-	int* stackData;
+	short* stackData = NULL;
 	StackItem * tmp;
 	StackItem* item;
-	int offset = 0;
-	int foundLevel = 0;
-	int counter = 0;
+	short offset = 0;
+	short foundLevel = 0;
+	short counter = 0;
 
 	*count = 0;
 	cut = stack->num - H;
@@ -210,7 +211,7 @@ int* serializeStack(int* count) {
 				item = item->next;
 			}
 
-			stackData = (int*) malloc(counter * sizeof(int));
+			stackData = (short*) malloc(counter * sizeof(short));
 			item = tmp;
 			while (item != NULL) {
 				int i;
@@ -244,14 +245,14 @@ int* serializeStack(int* count) {
 }
 
 void run() {
-	int workRequestProcessor = (process_id + 1) % processors;
-	int askewForWork = 0;
+	short workRequestProcessor = 0; // request root
+	short askewForWork = 0;
 	int counter = 0;
-	int breakProcess = 0;
-	int newMinSteps;
-	int isMessage;
+	short breakProcess = 0;
+	short newMinSteps;
+	short isMessage;
 
-	int dev_null = 0;
+	short dev_null = 0;
 
 	/* MPI */
 	int flag;
@@ -259,7 +260,7 @@ void run() {
 
 	/* token processing */
 	int hasToken = 0;
-	int receivedTokenColor;
+	short receivedTokenColor;
 	int tokenSent = 0;
 
 	int i;
@@ -267,21 +268,53 @@ void run() {
 	while(breakProcess == 0) {
 
 		counter++;
+
+		/* init others */
+		if(state == IDLE && process_id == 0 && counter > (processors + H)) {
+			/* send info for others:
+			 *
+			 * * towersCount
+			 * * discCount
+			 * * destTower
+			 * * min
+			 * * max
+			 *
+			 **/
+
+			initData[0] = towersCount;
+			initData[1] = discsCount;
+			initData[2] = destTower;
+			initData[3] = min;
+			initData[4] = max;
+
+			for (i = 1; i < processors; i++) {
+				MPI_Send(initData, 5, MPI_SHORT, i, MSG_INIT, MPI_COMM_WORLD);
+			}
+			state = ACTIVE;
+		}
+
+
 		/* if root and no Work -> send token */
 		if((isStackEmpty() && global_state == RUNNING) || (counter % (CONTROL_MESSAGE_FLAG)) == 0) {
 
 			/* want work */
-			if(isStackEmpty() && processors > 0 && askewForWork == 0 && global_state == RUNNING && processors > 1) {
-
+			if(isStackEmpty() && processors > 1 && askewForWork == 0 && global_state == RUNNING && state == ACTIVE) {
 
 				askewForWork = 1;
-				MPI_Send(&workRequestProcessor, 1, MPI_INT, workRequestProcessor, MSG_WANT_WORK, MPI_COMM_WORLD);
+
+				debug_print("REQUESTING WORK (process %i) TO PROCESS %i", process_id, workRequestProcessor);
+				MPI_Send(&workRequestProcessor, 1, MPI_SHORT, workRequestProcessor, MSG_WANT_WORK, MPI_COMM_WORLD);
+
+				srand (time(NULL));
+				workRequestProcessor = rand() % processors;
+
+				/*
 				workRequestProcessor = (workRequestProcessor + 1) % processors;
 				if(workRequestProcessor == process_id) {
 					workRequestProcessor = (workRequestProcessor + 1) % processors;
 				}
+				*/
 
-				debug_print("REQUESTING WORK (process %i) TO PROCESS %i", workRequestProcessor,process_id);
 			}
 
 			if(isStackEmpty() && process_id == 0 && tokenSent == 0) {
@@ -289,7 +322,7 @@ void run() {
 					debug_print("MASTER (process %i) IS SENDING TOKEN", process_id);
 					color = WHITE_COLOR;
 					tokenSent = 1;
-					MPI_Send(&color, 1, MPI_INT, 1, MSG_TOKEN, MPI_COMM_WORLD);
+					MPI_Send(&color, 1, MPI_SHORT, 1, MSG_TOKEN, MPI_COMM_WORLD);
 				} else {
 					breakProcess = 1;
 				}
@@ -297,7 +330,7 @@ void run() {
 		    	color = WHITE_COLOR;
 		    	hasToken = 0;
 		    	debug_print("NODE (process %i) IS SENDING %s TOKEN", process_id, (receivedTokenColor == BLACK_COLOR ? "BLACK": "WHITE"));
-		    	MPI_Send(&receivedTokenColor, 1, MPI_INT, (process_id + 1) % processors , MSG_TOKEN, MPI_COMM_WORLD);
+		    	MPI_Send(&receivedTokenColor, 1, MPI_SHORT, (process_id + 1) % processors , MSG_TOKEN, MPI_COMM_WORLD);
 		    }
 
 		}
@@ -325,7 +358,7 @@ void run() {
 						case MSG_TOKEN: {
 							debug_print("MSG_TOKEN (process %i) RECEIVED", process_id);
 
-							MPI_Recv(&receivedTokenColor, 1, MPI_INT, MPI_ANY_SOURCE, MSG_TOKEN, MPI_COMM_WORLD, &status);
+							MPI_Recv(&receivedTokenColor, 1, MPI_SHORT, MPI_ANY_SOURCE, MSG_TOKEN, MPI_COMM_WORLD, &status);
 
 							if (process_id != 0) {
 								if(color == BLACK_COLOR) {
@@ -336,7 +369,7 @@ void run() {
 								if (receivedTokenColor == WHITE_COLOR && isStackEmpty()) {
 									/* end process */
 									for (i = 0; i < processors; i++) {
-										MPI_Send(&processors, 1, MPI_INT, i, MSG_END, MPI_COMM_WORLD);
+										MPI_Send(&processors, 1, MPI_SHORT, i, MSG_END, MPI_COMM_WORLD);
 										breakProcess = 1;
 									}
 								} else {
@@ -350,16 +383,17 @@ void run() {
 
 							/* initializovat stav */
 
-							MPI_Recv(initData, 5, MPI_INT, MPI_ANY_SOURCE, MSG_INIT, MPI_COMM_WORLD, &status);
+							MPI_Recv(initData, 5, MPI_SHORT, MPI_ANY_SOURCE, MSG_INIT, MPI_COMM_WORLD, &status);
 							init(initData[0], initData[1], initData[2], initData[3], initData[4]);
 							global_state = RUNNING;
+							state = ACTIVE;
 						}
 						break;
 						case MSG_NEW_MIN_STEPS: {
 							/* zmensit max a nastavit info o nejlepsim reseni */
 							debug_print("MSG_NEW_MIN_STEPS (process %i) RECEIVED", process_id);
 
-							MPI_Recv(&newMinSteps , 1, MPI_INT, MPI_ANY_SOURCE, MSG_NEW_MIN_STEPS, MPI_COMM_WORLD, &status);
+							MPI_Recv(&newMinSteps , 1, MPI_SHORT, MPI_ANY_SOURCE, MSG_NEW_MIN_STEPS, MPI_COMM_WORLD, &status);
 
 							if(newMinSteps < minSteps) {
 								minSteps = max = newMinSteps;
@@ -372,23 +406,24 @@ void run() {
 							debug_print("MSG_NO_WORK (process %i) RECEIVED", process_id);
 
 							askewForWork = 0;
-							MPI_Recv(&askewForWork, 1, MPI_INT, MPI_ANY_SOURCE, MSG_NO_WORK, MPI_COMM_WORLD, &status);
+							MPI_Recv(&askewForWork, 1, MPI_SHORT, MPI_ANY_SOURCE, MSG_NO_WORK, MPI_COMM_WORLD, &status);
 						}
 						break;
 						case MSG_WORK: {
+
 #ifdef STAR
 							int mpi_count;
-							MPI_Get_count(&status, MPI_INT, &mpi_count);
-							int data[mpi_count];
+							MPI_Get_count(&status, MPI_SHORT, &mpi_count);
+							short data[mpi_count];
 							askewForWork = 0;
 							debug_print("MSG_WORK (process %i) OF SIZE %i RECEIVED", process_id, mpi_count);
-							MPI_Recv(&data, mpi_count, MPI_INT, MPI_ANY_SOURCE, MSG_WORK, MPI_COMM_WORLD, &status);
+							MPI_Recv(&data, mpi_count, MPI_SHORT, MPI_ANY_SOURCE, MSG_WORK, MPI_COMM_WORLD, &status);
 							deserializeStack(data, mpi_count);
 #else
-							int items[status._count];
+							short items[status._count];
 							askewForWork = 0;
 							debug_print("MSG_WORK (process %i) OF SIZE %i RECEIVED", process_id, status._count);
-							MPI_Recv(&items, status._count, MPI_INT, MPI_ANY_SOURCE, MSG_WORK, MPI_COMM_WORLD, &status);
+							MPI_Recv(&items, status._count, MPI_SHORT, MPI_ANY_SOURCE, MSG_WORK, MPI_COMM_WORLD, &status);
 							deserializeStack(items, status._count);
 #endif
 
@@ -396,24 +431,37 @@ void run() {
 						}
 						break;
 						case MSG_WANT_WORK: {
-							int * data, dataSize;
+							short * data = NULL, dataSize, sorry = 0;
 
+							MPI_Recv(&dev_null, 1, MPI_SHORT, MPI_ANY_SOURCE, MSG_WANT_WORK, MPI_COMM_WORLD, &status);
 
-							MPI_Recv(&dev_null, 1, MPI_INT, MPI_ANY_SOURCE, MSG_WANT_WORK, MPI_COMM_WORLD, &status);
-							data =	serializeStack(&dataSize);
-
-							debug_print("MSG_WANT_WORK (process %i) FROM process %i RECEIVED - DATA OF SIZE %i WILL BE SEND", process_id, status.MPI_SOURCE, dataSize);
-
-							if(dataSize > 0) {
-								/* I can send some work */
-								MPI_Send(data, dataSize, MPI_CHAR, status.MPI_SOURCE, MSG_WORK, MPI_COMM_WORLD);
-								color = BLACK_COLOR;
-								/* FREE?? */
+							if(askewForWork == 1) {
+								sorry = 1;
+								/* i have no work too */
 							} else {
-								/* sorry */
-								int x = 0;
-								MPI_Send(&x, 1, MPI_INT, status.MPI_SOURCE, MSG_NO_WORK, MPI_COMM_WORLD);
+								data =	serializeStack(&dataSize);
+								if(dataSize > 0) {
+									debug_print("MSG_WANT_WORK (process %i) FROM process %i RECEIVED - DATA OF SIZE %i WILL BE SEND", process_id, status.MPI_SOURCE, dataSize);
+									/* I can send some work */
+									MPI_Send(data, dataSize, MPI_SHORT, status.MPI_SOURCE, MSG_WORK, MPI_COMM_WORLD);
+									color = BLACK_COLOR;
+									/* FREE?? */
+								} else {
+									sorry = 1;
+								}
 							}
+
+							if(sorry == 1) {
+								/* sorry */
+								debug_print("MSG_WANT_WORK (process %i) FROM process %i RECEIVED - NO WORK SEND", process_id, status.MPI_SOURCE);
+								short x = 0;
+								MPI_Send(&x, 1, MPI_SHORT, status.MPI_SOURCE, MSG_NO_WORK, MPI_COMM_WORLD);
+							}
+
+							if(data != NULL) {
+								free(data);
+							}
+
 						}
 						break;
 					}
@@ -424,7 +472,7 @@ void run() {
 		if(!isStackEmpty() && breakProcess == 0) {
 
 
-			int step, iStart, jStart, prevMovedDisc, i, received, sent, moved = 0;
+			short step, iStart, jStart, prevMovedDisc, i, received, sent, moved = 0;
 			Tower* _towers;
 
 			_towers = deserializeState(top(&step, &iStart, &jStart, &prevMovedDisc, &received, &sent));
@@ -455,7 +503,7 @@ void run() {
 						for(i = 0; i < processors; i++) {
 							if(i == process_id) continue;
 							debug_print("SENDING BEST SOLUTION (process %i) -> END TO process %i", process_id, i);
-							MPI_Send(&processors, 1, MPI_INT, i, MSG_END, MPI_COMM_WORLD);
+							MPI_Send(&processors, 1, MPI_SHORT, i, MSG_END, MPI_COMM_WORLD);
 						}
 						breakProcess = 1;
 					} else {
@@ -463,7 +511,7 @@ void run() {
 						for(i = 0; i < processors; i++) {
 							if(i == process_id) continue;
 							debug_print("SENDING NEW MIN (process %i) -> END TO process %i", process_id, i);
-							MPI_Send(&minSteps, 1, MPI_INT, i, MSG_NEW_MIN_STEPS, MPI_COMM_WORLD);
+							MPI_Send(&minSteps, 1, MPI_SHORT, i, MSG_NEW_MIN_STEPS, MPI_COMM_WORLD);
 						}
 					}
 				}
@@ -478,7 +526,7 @@ void run() {
 			}
 
 			for(i = iStart; i < towersCount; i++) {
-				int j;
+				short j;
 				for(j = jStart; j < towersCount; j++) {
 					int resultDisc;
 					if(i == j) {
@@ -525,7 +573,7 @@ void run() {
 
 }
 
-void describeMove(int* prevState, int* currentState, int* disc, int* sourceTower, int* destTower) {
+void describeMove(short* prevState, short* currentState, short* disc, short* sourceTower, short* destTower) {
 	int i;
 	for(i = 0; i < discsCount; i++) {
 		if(prevState[i] != currentState[i]) {
@@ -538,7 +586,7 @@ void describeMove(int* prevState, int* currentState, int* disc, int* sourceTower
 	*disc = *sourceTower = *destTower = -1;
 }
 
-int compareStates(int* prevState, int* currentState) {
+int compareStates(short* prevState, short* currentState) {
 	int i;
 	for(i = 0; i < discsCount; i++) {
 		if(prevState[i] != currentState[i]) {
@@ -549,7 +597,7 @@ int compareStates(int* prevState, int* currentState) {
 }
 
 void inspectStack() {
-	int* currentState;
+	short* currentState;
 	StackItem * tmp;
 	ProcessItem * n;
 	n = NULL;
@@ -582,8 +630,8 @@ void freeInspectStack() {
 
 void printSolutionIfExists() {
 	int i;
-	int local_min = minSteps;
-	int local_processor = processorWithSolution;
+	short local_min = minSteps;
+	short local_processor = processorWithSolution;
 	MPI_Status status;
 
 	debug_print("PRINTING SOLUTION (process %i)", process_id);
@@ -593,14 +641,14 @@ void printSolutionIfExists() {
 		initData[1] = processorWithSolution;
 
 		debug_print("SENDING SOLUTION (process %i) TO MASTER", process_id);
-		MPI_Send(initData, 5, MPI_INT, 0, MSG_SOLUTION_INFO, MPI_COMM_WORLD);
+		MPI_Send(initData, 5, MPI_SHORT, 0, MSG_SOLUTION_INFO, MPI_COMM_WORLD);
 
-		MPI_Recv(&processorWithSolution, 1, MPI_INT, MPI_ANY_SOURCE, MSG_FINAL_PROCESSOR, MPI_COMM_WORLD, &status);
+		MPI_Recv(&processorWithSolution, 1, MPI_SHORT, MPI_ANY_SOURCE, MSG_FINAL_PROCESSOR, MPI_COMM_WORLD, &status);
 
 		debug_print("SOLUTION SYNC (process %i) RECEIVED", process_id);
 	} else {
 		for (i = 1; i < processors; i++) {
-			MPI_Recv(initData, 5, MPI_INT, MPI_ANY_SOURCE, MSG_SOLUTION_INFO, MPI_COMM_WORLD, &status);
+			MPI_Recv(initData, 5, MPI_SHORT, MPI_ANY_SOURCE, MSG_SOLUTION_INFO, MPI_COMM_WORLD, &status);
 			debug_print("MASTER RECEIVED LOCAL SOLUTION FROM %i", status.MPI_SOURCE);
 
 			if(initData[0] < local_min) {
@@ -614,7 +662,7 @@ void printSolutionIfExists() {
 
 		for (i = 1; i < processors; i++) {
 			debug_print("MASTER SEND GLOBAL SOLUTION SYNC TO process %i", i);
-			MPI_Send(&processorWithSolution, 1, MPI_INT, i, MSG_FINAL_PROCESSOR, MPI_COMM_WORLD);
+			MPI_Send(&processorWithSolution, 1, MPI_SHORT, i, MSG_FINAL_PROCESSOR, MPI_COMM_WORLD);
 		}
 
 	}
@@ -635,7 +683,7 @@ void printSolutionIfExists() {
 	freeInspectStack();
 }
 
-void init(int _size, int _discsCount, int _destTower, int _min, int _max) {
+void init(short _size, short _discsCount, short _destTower, short _min, short _max) {
 	towersCount = _size;
 	discsCount = _discsCount;
 	destTower = _destTower;
@@ -644,13 +692,12 @@ void init(int _size, int _discsCount, int _destTower, int _min, int _max) {
 	max = 15;
 	minSteps = max + 1;
 
-	state = ACTIVE;
 	global_state = RUNNING;
 }
 
 /* for processor_id == 0  */
-void process_master(int _process_id, int _processors, Tower *_towers, int _size, int _discsCount, int _destTower) {
-	int i;
+void process_master(int _process_id, int _processors, Tower *_towers, short _size, short _discsCount, short _destTower) {
+	/*int i;*/
 
 	/* MPI info settings */
 	process_id = _process_id;
@@ -668,7 +715,6 @@ void process_master(int _process_id, int _processors, Tower *_towers, int _size,
     global_state = RUNNING;
 
     /* state settings */
-    state = ACTIVE;
     global_state = RUNNING;
 
     /* send info for others:
@@ -680,7 +726,7 @@ void process_master(int _process_id, int _processors, Tower *_towers, int _size,
      * * max
      *
      **/
-
+    /*
     initData[0] = towersCount;
     initData[1] = discsCount;
     initData[2] = destTower;
@@ -688,9 +734,9 @@ void process_master(int _process_id, int _processors, Tower *_towers, int _size,
     initData[4] = max;
 
     for(i = 1; i < processors; i++) {
-    	MPI_Send(initData, 5, MPI_INT, i, MSG_INIT, MPI_COMM_WORLD);
+    	MPI_Send(initData, 5, MPI_SHORT, i, MSG_INIT, MPI_COMM_WORLD);
     }
-
+     */
     push(serializeState(_towers), 0, 0, 0, -1, 0, 0);
 
 	run();

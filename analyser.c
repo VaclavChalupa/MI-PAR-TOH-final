@@ -8,8 +8,8 @@
 #include <math.h>
 #include <stdio.h>
 
-int minMoves(Tower towers[], int size, int maxDiscSize, int destTower) {
-	int count = 0, i;
+short minMoves(Tower towers[], short size, short maxDiscSize, short destTower) {
+	short count = 0, i;
 	for(i = 0; i < size; i++) {
 		if(towers[i].number == destTower) {
 			int needed = maxDiscSize;
@@ -34,7 +34,7 @@ int minMoves(Tower towers[], int size, int maxDiscSize, int destTower) {
 	return count;
 }
 
-int maxMoves(int discsCount, int towersCount) {
+short maxMoves(short discsCount, short towersCount) {
 	return ceil(pow(2, (discsCount/(towersCount-2)))-1)*(2*towersCount-5);
 }
 

@@ -7,10 +7,10 @@
 #define PROCESS_ITEM_H_
 
 typedef struct ProcessItem {
-		int disc;
-		int sourceTower;
-		int destTower;
-        struct ProcessItem *next;
+	short disc;
+	short sourceTower;
+	short destTower;
+    struct ProcessItem *next;
 } ProcessItem;
 
 void printProcessItem(ProcessItem* processItem);

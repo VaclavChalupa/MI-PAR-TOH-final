@@ -7,14 +7,14 @@
 #define STACK_ITEM_H_
 
 typedef struct StackItem {
-		int* data;
-		int step;
-		int i;
-		int j;
-		int movedDisc;
-		int received;
-		int sent;
-        struct StackItem *next;
+	short* data;
+	short step;
+	short i;
+	short j;
+	short movedDisc;
+	short received;
+	short sent;
+    struct StackItem *next;
 } StackItem;
 
 #endif /* STACK_ITEM_H_ */

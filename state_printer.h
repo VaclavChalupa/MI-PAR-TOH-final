@@ -8,6 +8,6 @@
 
 #include "tower.h"
 
-void printState(Tower towers[], int size);
+void printState(Tower towers[], short size);
 
 #endif /* STATE_PRINTER_H_ */

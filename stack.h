@@ -10,18 +10,18 @@
 
 typedef struct {
 	StackItem *top;
-	int num;
+	short num;
 } Stack;
 
 Stack * initializeStack();
 
-void push(int* data, int step, int i, int j, int movedDisc, int received, int sent);
+void push(short* data, short step, short i, short j, short movedDisc, short received, short sent);
 
-int* top(int* step, int* i, int* j, int* movedDisc, int* received, int* sent);
+short* top(short* step, short* i, short* j, short* movedDisc, short* received, short* sent);
 
 void pop();
 
-void setState(int _i, int _j);
+void setState(short _i, short _j);
 
 int isStackEmpty();
 
