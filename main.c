@@ -23,6 +23,9 @@ int main(int argc, char *argv[]) {
 	FILE *file;
 	short i;
 
+	/* for time measurement */
+	double t1, t2;
+
 	/* initialize MPI */
 	MPI_Init(&argc, &argv);
 
@@ -89,10 +92,18 @@ int main(int argc, char *argv[]) {
 
 			  debug_print("Enter loaded by process %i", process_id);
 
+			  /* wait for late-comers and start measuring time */
+			  MPI_Barrier(MPI_COMM_WORLD); /* cekam na spusteni vsech procesu */
+		  	  t1=MPI_Wtime(); /* pocatecni cas */
+
 			  /* vstup do procesu jako master */
 			  process_master(process_id, processors, towers, towersCount, discsCount, destTower);
 			  freeTowers(towers, &towersCount);
 
+			  /* wait for others to finish and calculate the total time */
+			  MPI_Barrier(MPI_COMM_WORLD); /* cekam na dokonceni vypoctu */
+			  t2=MPI_Wtime(); /* koncovy cas */
+			  printf ("Total time spent: %f.\n",t2-t1);
 		} else {
 			for(i = 1; i < processors; i++) {
 				MPI_Send(&i, 0, MPI_INT, i, 500, MPI_COMM_WORLD);
@@ -103,7 +114,9 @@ int main(int argc, char *argv[]) {
 
 	} else {
 		/* not the master */
+		MPI_Barrier(MPI_COMM_WORLD); /* I've started */
 		process(process_id, processors);
+		MPI_Barrier(MPI_COMM_WORLD); /* I've finished */
 	}
 
 	debug_print("FINISH process %i", process_id);
