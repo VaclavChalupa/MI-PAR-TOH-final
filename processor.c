@@ -34,7 +34,7 @@
 /* deleni zasobniku - rezna hladina */
 #define H 10
 
-#include "state_printer.h";
+#include "state_printer.h"
 #include "tower.h"
 #include "stack_item.h"
 #include "stack.h"
@@ -149,7 +149,12 @@ int loopDetected() {
 void deserializeStack(short* stackData, short itemsCount) {
 
 	short offset, bulk;
-	bulk = discsCount + 7;
+	bulk = discsCount + 6;
+
+
+	/*for(int i = 0; i < itemsCount; i++) {
+		debug_print("****RECEIVING  (process %i) DATA[%i] = %i", process_id, i, stackData[i]);
+	}*/
 
 	for (offset = 0; offset < itemsCount; offset += bulk) {
 		short* data;
@@ -170,7 +175,8 @@ void deserializeStack(short* stackData, short itemsCount) {
 
 		push(data, step, i, j, movedDisc, 1, 1);
 	}
-
+	stack->top->received = 0;
+	stack->top->sent = 0;
 	stack->num = 1;
 }
 
@@ -193,7 +199,7 @@ short* serializeStack(short* count) {
 		tmp = stack->top;
 		for(tmp = tmp->next; tmp; tmp = tmp->next) {
 			level--;
-			/* send only perspective branche */
+			/* send only perspective branch */
 			if(tmp->i < towersCount-1 && level <= cut && level >= 1 && tmp->sent != 1) {
 				foundLevel = 1;
 				break;
@@ -237,6 +243,13 @@ short* serializeStack(short* count) {
 			}
 			/* set as sent */
 			tmp->sent = 1;
+			/*debug_print("WWWWWWW (process %i) SEND = %i, num= %i, i = %i, j = %i, sent = %i", process_id, tmp->received, stack->num, tmp->i, tmp->j, tmp->sent);*/
+
+			/*for(int i = 0; i < counter; i++) {
+				debug_print("****SENDING  (process %i) DATA[%i] = %i", process_id, i, stackData[i]);
+			}*/
+
+
 		}
 		*count = counter;
 		return stackData;
@@ -295,25 +308,30 @@ void run() {
 
 
 		/* if root and no Work -> send token */
-		if((isStackEmpty() && global_state == RUNNING) || (counter % (CONTROL_MESSAGE_FLAG)) == 0) {
+		if((isStackEmpty() && global_state == RUNNING) && (counter % (CONTROL_MESSAGE_FLAG)) == 0) {
 
 			/* want work */
-			if(isStackEmpty() && processors > 1 && askewForWork == 0 && global_state == RUNNING && state == ACTIVE) {
+			if(isStackEmpty() && processors > 1 && askewForWork == 0 && global_state == RUNNING) {
 
 				askewForWork = 1;
 
 				debug_print("REQUESTING WORK (process %i) TO PROCESS %i", process_id, workRequestProcessor);
 				MPI_Send(&workRequestProcessor, 1, MPI_SHORT, workRequestProcessor, MSG_WANT_WORK, MPI_COMM_WORLD);
 
-				srand (time(NULL));
-				workRequestProcessor = rand() % processors;
 
-				/*
-				workRequestProcessor = (workRequestProcessor + 1) % processors;
-				if(workRequestProcessor == process_id) {
+				if(state == IDLE) {
+					/*initialized non root - continue right work request*/
+					state = ACTIVE;
+					workRequestProcessor = (process_id + 1) % processors;
+				} else {
 					workRequestProcessor = (workRequestProcessor + 1) % processors;
+					if(workRequestProcessor == process_id) {
+						workRequestProcessor = (workRequestProcessor + 1) % processors;
+					}
 				}
-				*/
+
+				/*srand (time(NULL));
+				workRequestProcessor = rand() % processors;*/
 
 			}
 
@@ -386,7 +404,6 @@ void run() {
 							MPI_Recv(initData, 5, MPI_SHORT, MPI_ANY_SOURCE, MSG_INIT, MPI_COMM_WORLD, &status);
 							init(initData[0], initData[1], initData[2], initData[3], initData[4]);
 							global_state = RUNNING;
-							state = ACTIVE;
 						}
 						break;
 						case MSG_NEW_MIN_STEPS: {
@@ -476,14 +493,22 @@ void run() {
 			Tower* _towers;
 
 			_towers = deserializeState(top(&step, &iStart, &jStart, &prevMovedDisc, &received, &sent));
+			/*if(process_id != 0) debug_print("QQQQQQQQQQQ (process %i) RECEIVED = %i, num= %i, i = %i, j = %i, sent = %i", process_id, received, stack->num, iStart, jStart, sent);*/
+
+			if(received == 1) {
+				emptyStackItems();
+				continue;
+			}
+
+			if(sent == 1) {
+				pop();
+				continue;
+			}
 
 			if(step > max || loopDetected()) {
 				/* not a perspective solution branch */
 				freeTowers(_towers, &towersCount);
 				pop();
-				if(received == 1) {
-					emptyStackItems();
-				}
 				continue;
 			}
 
@@ -517,11 +542,6 @@ void run() {
 				}
 				freeTowers(_towers, &towersCount);
 				pop();
-
-				if(received == 1) {
-					/* END */
-					emptyStackItems();
-				}
 				continue;
 			}
 
@@ -559,10 +579,6 @@ void run() {
 			if(moved == 0) {
 				/* no possible move - item is dead */
 				pop();
-				if(received == 1) {
-					/* rest of stack is not my - END and request for work */
-					emptyStackItems();
-				}
 			}
 		}
 	}
@@ -676,7 +692,7 @@ void printSolutionIfExists() {
 			printProcessItem(pi);
 			pi = pi->next;
 		}
-	} else if (process_id == 0) {
+	} else if (minSteps > max && process_id == 0) {
 		printf("\nERROR: No solution found\n");
 	}
 
