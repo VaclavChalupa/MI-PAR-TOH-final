@@ -53,7 +53,9 @@ int main(int argc, char *argv[]) {
 			  fgets(line, sizeof line, file);
 			  sscanf(line, "%hi", &destTower);
 
-			  debug_print("Towers of Hanoi: %i towers, %i discs, %i dest tower\n", towersCount, discsCount, destTower);
+			  printf("Towers of Hanoi: %i towers, %i discs, %i dest tower\n", towersCount, discsCount, destTower);
+			  fflush(stdout);
+
 			  towers = (Tower*) malloc (towersCount * sizeof(Tower));
 
 			  for (i = 0; i < towersCount; i++) {
@@ -89,6 +91,7 @@ int main(int argc, char *argv[]) {
 			  fclose(file);
 
 			  printState(towers, towersCount);
+			  fflush(stdout);
 
 			  debug_print("Enter loaded by process %i", process_id);
 

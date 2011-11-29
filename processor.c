@@ -518,7 +518,6 @@ void run() {
 
 			_towers = deserializeState(top(&step, &iStart, &jStart, &prevMovedDisc, &received, &sent));
 			/*if(process_id != 0) debug_print("QQQQQQQQQQQ (process %i) RECEIVED = %i, num= %i, i = %i, j = %i, sent = %i", process_id, received, stack->num, iStart, jStart, sent);*/
-
 /*
 			debug_print("TOP %i", 99);
 			printState(_towers, towersCount);
@@ -534,7 +533,7 @@ void run() {
 				continue;
 			}
 
-			if(step > max || loopDetected()) {
+			if(step >= max || loopDetected()) {
 				/* not a perspective solution branch */
 				freeTowers(_towers, &towersCount);
 				pop();
@@ -542,11 +541,9 @@ void run() {
 			}
 
 			if (iStart == 0 && jStart == 0 && isDestTowerComplete(&_towers[destTower - 1], discsCount)) {
-				debug_print("\n\nSOLUTION FOUND IN %i STEPS (process %i) \n\n", step, process_id);
-				if(USE_DEBUG == 1) {
-					printState(_towers, towersCount);
-					fflush(stdout);
-				}
+				printf("\n\nSOLUTION FOUND IN %i STEPS (process %i) \n\n", step, process_id);
+				/*printState(_towers, towersCount);*/
+				fflush(stdout);
 
 				if (step < minSteps) {
 
@@ -781,9 +778,18 @@ void process_master(int _process_id, int _processors, Tower *_towers, short _siz
 	destTower = _destTower;
 	min = minMoves(_towers, towersCount, discsCount, destTower);
 	max = maxMoves(discsCount, towersCount);
-	max = 15;
+	if(max > min*2) {
+		max = min*2;
+	}
+
+	printf("SOLUTION SETTING: min = %i, max = %i", min, max);
+	fflush(stdout);
+
+	/* optimalization */
+	max++;
 	minSteps = max + 1;
-    solutionQueue.head = NULL;
+
+	solutionQueue.head = NULL;
     global_state = RUNNING;
 
     /* state settings */
