@@ -51,7 +51,6 @@ void pushItem(StackItem* stackItem, short step) {
 }
 
 void push(short* data, short step, short i, short j, short movedDisc, short received, short sent) {
-	/*printf("\nPUSH\n");*/
 	StackItem* stackItem;
 	stackItem = (StackItem*) malloc(sizeof(* stackItem));
 

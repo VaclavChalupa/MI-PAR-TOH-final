@@ -495,6 +495,11 @@ void run() {
 			_towers = deserializeState(top(&step, &iStart, &jStart, &prevMovedDisc, &received, &sent));
 			/*if(process_id != 0) debug_print("QQQQQQQQQQQ (process %i) RECEIVED = %i, num= %i, i = %i, j = %i, sent = %i", process_id, received, stack->num, iStart, jStart, sent);*/
 
+/*
+			debug_print("TOP %i", 99);
+			printState(_towers, towersCount);
+*/
+
 			if(received == 1) {
 				emptyStackItems();
 				continue;
@@ -514,8 +519,10 @@ void run() {
 
 			if (iStart == 0 && jStart == 0 && isDestTowerComplete(&_towers[destTower - 1], discsCount)) {
 				debug_print("\n\nSOLUTION FOUND IN %i STEPS (process %i) \n\n", step, process_id);
-				printState(_towers, towersCount);
-				fflush(stdout);
+				if(USE_DEBUG == 1) {
+					printState(_towers, towersCount);
+					fflush(stdout);
+				}
 
 				if (step < minSteps) {
 
@@ -552,8 +559,12 @@ void run() {
 					if(i == j) {
 						continue;
 					}
-
+/*
+					debug_print("BEFORE MOVE %i", resultDisc);
+					printState(_towers, towersCount);
+*/
 					resultDisc = move(&_towers[i],&_towers[j]);
+
 
 					if(resultDisc > 0) {
 						if(j+1 >= towersCount) {
@@ -564,10 +575,17 @@ void run() {
 						if(moved == 0) {
 							if(prevMovedDisc != resultDisc) {
 								push(serializeState(_towers), step+1, 0, 0, resultDisc, 0, 0);
+/*
+								debug_print("PUSH %i", resultDisc);
+								printState(_towers, towersCount);
+*/
 								moved++;
+								break;
+							} else {
+								/* undo move */
+								undoMove(&_towers[i],&_towers[j]);
 							}
 						}
-						break;
 					}
 					jStart = 0;
 				}
@@ -621,6 +639,7 @@ void inspectStack() {
 	freeInspectStack();
 
 	tmp = stack->top;
+
 	currentState = stack->top->data;
 
 	for(tmp = tmp->next; tmp; tmp = tmp->next) {
@@ -629,6 +648,7 @@ void inspectStack() {
 		currentState = tmp->data;
 		n->next = solutionQueue.head;
 		solutionQueue.head = n;
+
 	}
 }
 
