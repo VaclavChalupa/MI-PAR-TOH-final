@@ -156,7 +156,7 @@ void deserializeStack(short* stackData, short itemsCount) {
 		debug_print("****RECEIVING  (process %i) DATA[%i] = %i", process_id, i, stackData[i]);
 	}*/
 
-	for (offset = 0; offset < itemsCount; offset += bulk) {
+	/*for (offset = 0; offset < itemsCount; offset += bulk) {
 		short* data;
 		short step, i, j, movedDisc, received, sent;
 		short disc;
@@ -174,7 +174,31 @@ void deserializeStack(short* stackData, short itemsCount) {
 		sent = stackData[offset + discsCount + 5];
 
 		push(data, step, i, j, movedDisc, 1, 1);
+	}*/
+
+
+	for (offset = itemsCount - 1; offset >= 0; offset -= bulk) {
+		short* data;
+		short step, i, j, movedDisc, received, sent, help = 0;
+		short disc;
+		data = (short*) malloc(discsCount * sizeof(short));
+
+		sent = stackData[offset];
+		received = stackData[offset - 1];
+		movedDisc = stackData[offset - 2];
+		j = stackData[offset - 3];
+		i = stackData[offset - 4];
+		step = stackData[offset - 5];
+
+		for (disc = discsCount - 1; disc >= 0; disc--) {
+			data[disc] = stackData[(offset - 6) - help];
+			help++;
+		}
+
+		push(data, step, i, j, movedDisc, 1, 1);
 	}
+
+
 	stack->top->received = 0;
 	stack->top->sent = 0;
 	stack->num = 1;
@@ -534,7 +558,7 @@ void run() {
 					if(step <= min) {
 						for(i = 0; i < processors; i++) {
 							if(i == process_id) continue;
-							debug_print("SENDING BEST SOLUTION (process %i) -> END TO process %i", process_id, i);
+							debug_print("SENDING BEST SOLUTION (process %i) TO process %i", process_id, i);
 							MPI_Send(&processors, 1, MPI_SHORT, i, MSG_END, MPI_COMM_WORLD);
 						}
 						breakProcess = 1;
@@ -542,7 +566,7 @@ void run() {
 						/* not the greatest solution */
 						for(i = 0; i < processors; i++) {
 							if(i == process_id) continue;
-							debug_print("SENDING NEW MIN (process %i) -> END TO process %i", process_id, i);
+							debug_print("SENDING NEW MIN (process %i) TO process %i", process_id, i);
 							MPI_Send(&minSteps, 1, MPI_SHORT, i, MSG_NEW_MIN_STEPS, MPI_COMM_WORLD);
 						}
 					}
@@ -632,16 +656,28 @@ int compareStates(short* prevState, short* currentState) {
 
 void inspectStack() {
 	short* currentState;
-	StackItem * tmp;
+	StackItem * tmp/*, * tmp2*/;
 	ProcessItem * n;
 	n = NULL;
+	/*int x = stack->num;*/
 
 	freeInspectStack();
 
 	tmp = stack->top;
-
 	currentState = stack->top->data;
 
+/*
+	tmp2 = stack->top;
+	debug_print("*************** SETTING SOLUTION process %i", process_id);
+	for(tmp2 = stack->top; tmp2; tmp2 = tmp2->next) {
+		Tower* _towers;
+		n = (ProcessItem*) malloc(sizeof(* n));
+		debug_print("*************** SETTING SOLUTION process %i, steps: %i, num: %i, received: %i, sent: %i, i: %i, j: %i", process_id, tmp2->step, x, tmp2->received, tmp2->sent, tmp2->i, tmp2->j);
+		_towers = deserializeState(tmp2->data);
+		printState(_towers, towersCount);
+		x--;
+	}
+*/
 	for(tmp = tmp->next; tmp; tmp = tmp->next) {
 		n = (ProcessItem*) malloc(sizeof(* n));
 		describeMove(tmp->data, currentState, &n->disc, &n->sourceTower, &n->destTower);
@@ -745,7 +781,7 @@ void process_master(int _process_id, int _processors, Tower *_towers, short _siz
 	destTower = _destTower;
 	min = minMoves(_towers, towersCount, discsCount, destTower);
 	max = maxMoves(discsCount, towersCount);
-	max = 30;
+	max = 15;
 	minSteps = max + 1;
     solutionQueue.head = NULL;
     global_state = RUNNING;
