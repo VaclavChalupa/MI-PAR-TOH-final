@@ -725,7 +725,7 @@ void process_master(int _process_id, int _processors, Tower *_towers, short _siz
 	destTower = _destTower;
 	min = minMoves(_towers, towersCount, discsCount, destTower);
 	max = maxMoves(discsCount, towersCount);
-	max = 15;
+	max = 30;
 	minSteps = max + 1;
     solutionQueue.head = NULL;
     global_state = RUNNING;
